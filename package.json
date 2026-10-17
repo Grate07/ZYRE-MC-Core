@@ -1,0 +1,23 @@
+{
+  "name": "zyre-mc-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Production-ready Discord bot for ZYRE MC",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "check": "node --check index.js && node --check server.js && node --check database.js && node --check utils/canvasGenerator.js && node --check utils/components.js && node --check utils/config.js && node --check utils/permissions.js && node --check utils/botActions.js && node --check events/ready.js && node --check events/messageCreate.js && node --check events/guildMemberAdd.js && node --check events/interactionCreate.js && node --check commands/rank.js && node --check commands/leaderboard.js && node --check commands/setup.js && node --check commands/ip.js && node --check scripts/generate-assets.js",
+    "generate:assets": "node scripts/generate-assets.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "12.11.1",
+    "canvas": "3.2.3",
+    "discord.js": "14.27.0",
+    "dotenv": "16.6.1",
+    "express": "4.22.3"
+  },
+  "packageManager": "pnpm@10.26.1",
+  "engines": {
+    "node": "24.x"
+  }
+}

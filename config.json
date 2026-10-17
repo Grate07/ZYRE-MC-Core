@@ -1,0 +1,31 @@
+{
+  "guildId": "",
+  "adminRoleId": "",
+  "welcomeChannelId": "",
+  "rulesChannelId": "",
+  "rankChannelId": "",
+  "levelUpChannelId": "",
+  "prefix": "!",
+  "databasePath": "./data/levels.sqlite",
+  "assets": {
+    "logo": "./assets/zyre_logo.png",
+    "welcomeBanner": "./assets/zyre_banner.png"
+  },
+  "serverInfo": {
+    "ip": "play.zyremc.fun",
+    "bedrockPort": "19132",
+    "name": "Zyre MC",
+    "timeZone": "Asia/Kolkata"
+  },
+  "levelRoles": {
+    "5": "ROLE_ID_HERE",
+    "10": "ROLE_ID_HERE",
+    "25": "ROLE_ID_HERE",
+    "50": "ROLE_ID_HERE"
+  },
+  "xpSettings": {
+    "minXp": 15,
+    "maxXp": 25,
+    "cooldownSeconds": 60
+  }
+}
