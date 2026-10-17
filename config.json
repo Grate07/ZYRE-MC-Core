@@ -18,10 +18,10 @@
     "timeZone": "Asia/Kolkata"
   },
   "levelRoles": {
-    "5": "ROLE_ID_HERE",
-    "10": "ROLE_ID_HERE",
-    "25": "ROLE_ID_HERE",
-    "50": "ROLE_ID_HERE"
+    "5": "1533711455252123818",
+    "10": "1533711579613495327",
+    "25": "1533711772316467231",
+    "50": "1533711905430962337"
   },
   "xpSettings": {
     "minXp": 15,
