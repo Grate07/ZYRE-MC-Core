@@ -7,6 +7,7 @@ const {
   Client,
   Collection,
   GatewayIntentBits,
+  Events,
 } = require('discord.js');
 
 const {
@@ -26,27 +27,29 @@ async function main() {
   const clientId = process.env.CLIENT_ID?.trim();
 
   if (!token) {
-    throw new Error(
-      'DISCORD_TOKEN is missing from Render environment variables.'
-    );
+    throw new Error('DISCORD_TOKEN is missing.');
   }
 
   if (!snowflakePattern.test(clientId || '')) {
-    throw new Error(
-      'CLIENT_ID is missing or is not a valid Discord application ID.'
-    );
+    throw new Error('CLIENT_ID is missing or invalid.');
   }
 
-  const logoPath = resolveConfigPath(config.assets.logo);
-  const bannerPath = resolveConfigPath(config.assets.welcomeBanner);
+  console.info('[Startup] Configuration validated.');
+  console.info('[Startup] Discord token is present:', Boolean(token));
+  console.info('[Startup] Client ID is valid:', Boolean(clientId));
+  console.info('[Startup] Guild ID:', config.guildId);
+  console.info(
+    '[Startup] discord.js version:',
+    require('discord.js').version
+  );
 
   for (const [label, filePath] of [
-    ['ZYRE MC logo', logoPath],
-    ['welcome banner', bannerPath],
+    ['ZYRE MC logo', resolveConfigPath(config.assets.logo)],
+    ['Welcome banner', resolveConfigPath(config.assets.welcomeBanner)],
   ]) {
     if (!fs.existsSync(filePath)) {
       throw new Error(
-        `The configured ${label} file does not exist: ${filePath}`
+        `Configured ${label} does not exist: ${filePath}`
       );
     }
   }
@@ -68,45 +71,84 @@ async function main() {
   client.database = database;
 
   let keepAliveServer;
+  let readyTimeout;
   let shuttingDown = false;
+
+  async function shutdown(reason, exitCode = 0) {
+    if (shuttingDown) return;
+
+    shuttingDown = true;
+    console.info(`[Shutdown] ${reason}`);
+
+    if (readyTimeout) {
+      clearTimeout(readyTimeout);
+    }
+
+    client.destroy();
+
+    try {
+      database.close();
+    } catch (error) {
+      console.error('[Database] Close failed:', error.message);
+    }
+
+    if (keepAliveServer) {
+      await new Promise((resolve) => {
+        keepAliveServer.close(resolve);
+      });
+    }
+
+    if (exitCode !== 0) {
+      process.exitCode = exitCode;
+    }
+  }
 
   try {
     const commandDirectory = path.join(__dirname, 'commands');
 
-    for (
-      const fileName of fs.readdirSync(commandDirectory)
-        .filter((name) => name.endsWith('.js'))
-    ) {
+    for (const fileName of fs.readdirSync(commandDirectory)) {
+      if (!fileName.endsWith('.js')) continue;
+
       const command = require(
         path.join(commandDirectory, fileName)
       );
+
+      if (!command.data?.name || typeof command.execute !== 'function') {
+        throw new Error(
+          `Invalid command module: commands/${fileName}`
+        );
+      }
 
       client.commands.set(command.data.name, command);
     }
 
     const eventDirectory = path.join(__dirname, 'events');
 
-    for (
-      const fileName of fs.readdirSync(eventDirectory)
-        .filter((name) => name.endsWith('.js'))
-    ) {
+    for (const fileName of fs.readdirSync(eventDirectory)) {
+      if (!fileName.endsWith('.js')) continue;
+
       const event = require(
         path.join(eventDirectory, fileName)
       );
 
-      const handler = (...args) => {
-        Promise.resolve(
-          event.execute(...args, database)
-        ).catch((error) => {
-          console.error(
-            `Discord event "${event.name}" failed:`,
-            error
-          );
+      if (!event.name || typeof event.execute !== 'function') {
+        throw new Error(
+          `Invalid event module: events/${fileName}`
+        );
+      }
 
-          if (event.name === 'ready') {
-            void shutdown('READY_EVENT_FAILURE', 1);
-          }
-        });
+      const handler = (...args) => {
+        Promise.resolve(event.execute(...args, database))
+          .catch((error) => {
+            console.error(
+              `[Event: ${event.name}] Failed:`,
+              error
+            );
+
+            if (event.name === Events.ClientReady) {
+              void shutdown('READY_EVENT_FAILURE', 1);
+            }
+          });
       };
 
       if (event.once) {
@@ -116,81 +158,50 @@ async function main() {
       }
     }
 
+    client.on('debug', (message) => {
+      console.info(`[Discord Debug] ${message}`);
+    });
+
     client.on('error', (error) => {
-      console.error('Discord client error:', error);
+      console.error('[Discord Client Error]', error);
     });
 
     client.on('warn', (message) => {
-      console.warn('Discord warning:', message);
+      console.warn('[Discord Warning]', message);
     });
 
     client.on('shardError', (error, shardId) => {
       console.error(
-        `Discord Gateway error on shard ${shardId}:`,
+        `[Gateway] Shard ${shardId} error:`,
         error
       );
     });
 
     client.on('shardDisconnect', (event, shardId) => {
       console.error(
-        `Gateway shard ${shardId} disconnected. Code: ${event.code}`
+        `[Gateway] Shard ${shardId} disconnected.`,
+        `Code: ${event.code}`,
+        `Reason: ${event.reason || 'Not provided'}`
       );
     });
 
     client.on('shardReconnecting', (shardId) => {
-      console.warn(
-        `Gateway shard ${shardId} is reconnecting.`
-      );
+      console.warn(`[Gateway] Shard ${shardId} reconnecting.`);
     });
 
     client.on('shardReady', (shardId) => {
+      console.info(`[Gateway] Shard ${shardId} is ready.`);
+    });
+
+    client.once(Events.ClientReady, (readyClient) => {
+      if (readyTimeout) clearTimeout(readyTimeout);
+
       console.info(
-        `Discord Gateway shard ${shardId} is ready.`
+        `[Ready] Bot is online as ${readyClient.user.tag}.`
       );
     });
 
-    // Start the health server only after application setup.
     keepAliveServer = startKeepAlive();
-
-    async function shutdown(reason, exitCode = 0) {
-      if (shuttingDown) return;
-      shuttingDown = true;
-
-      console.info(`Shutting down: ${reason}`);
-
-      clearTimeout(readyTimeout);
-
-      client.destroy();
-
-      try {
-        database.close();
-      } catch (error) {
-        console.error('Database shutdown error:', error);
-      }
-
-      if (keepAliveServer) {
-        await new Promise((resolve) => {
-          keepAliveServer.close(resolve);
-        });
-      }
-
-      if (exitCode !== 0) {
-        process.exitCode = exitCode;
-      }
-    }
-
-    const readyTimeout = setTimeout(() => {
-      if (!client.isReady()) {
-        console.error(
-          'Discord did not become ready within 45 seconds. ' +
-          'Check the Gateway logs, bot token, and privileged intents.'
-        );
-
-        void shutdown('DISCORD_READY_TIMEOUT', 1);
-      }
-    }, 45000);
-
-    readyTimeout.unref();
 
     process.once('SIGINT', () => {
       void shutdown('SIGINT');
@@ -200,37 +211,33 @@ async function main() {
       void shutdown('SIGTERM');
     });
 
-    console.info('Attempting to connect to Discord Gateway...');
+    readyTimeout = setTimeout(() => {
+      if (!client.isReady()) {
+        console.error(
+          '[Gateway] Bot did not become ready within 45 seconds.'
+        );
+
+        console.error(
+          '[Gateway] Review the preceding Discord debug and shard logs.'
+        );
+
+        void shutdown('DISCORD_READY_TIMEOUT', 1);
+      }
+    }, 45000);
+
+    console.info('[Gateway] Attempting Discord login...');
 
     await client.login(token);
 
-    console.info('Discord login request completed.');
-
-    if (client.isReady()) {
-      console.info(
-        `Discord bot is online as ${client.user.tag}.`
-      );
-    }
+    console.info('[Gateway] Login promise resolved.');
   } catch (error) {
-    console.error('Discord/application startup failed:', error);
+    console.error('[Startup Failure]', error);
 
-    client.destroy();
-
-    try {
-      database.close();
-    } catch {}
-
-    if (keepAliveServer) {
-      await new Promise((resolve) => {
-        keepAliveServer.close(resolve);
-      });
-    }
-
-    process.exitCode = 1;
+    await shutdown('STARTUP_FAILURE', 1);
   }
 }
 
 main().catch((error) => {
-  console.error('Zyre MC Bot failed to start:', error);
+  console.error('[Fatal Error]', error);
   process.exitCode = 1;
 });
