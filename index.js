@@ -101,9 +101,12 @@ client.on('shardReconnecting', (shardId) => {
   process.once('SIGINT', () => void shutdown('SIGINT'));
   process.once('SIGTERM', () => void shutdown('SIGTERM'));
 
-  try {
-    await client.login(token);
-    console.info('Discord login succeeded.');
+try {
+  console.info('Attempting to connect to Discord Gateway...');
+
+  await client.login(token);
+
+  console.info('Discord login succeeded.');
   } catch (error) {
     client.destroy();
     database.close();
