@@ -69,7 +69,27 @@ async function main() {
     else client.on(event.name, handler);
   }
 
-  client.on('error', (error) => console.error('Discord client error:', error));
+  client.on('error', (error) => {
+  console.error('Discord client error:', error);
+});
+
+client.on('warn', (message) => {
+  console.warn('Discord warning:', message);
+});
+
+client.on('shardError', (error, shardId) => {
+  console.error(`Discord shard ${shardId} error:`, error);
+});
+
+client.on('shardDisconnect', (event, shardId) => {
+  console.error(
+    `Discord shard ${shardId} disconnected. Close code: ${event.code}`
+  );
+});
+
+client.on('shardReconnecting', (shardId) => {
+  console.warn(`Discord shard ${shardId} is reconnecting.`);
+});
 
   const shutdown = async (signal) => {
     console.info(`Received ${signal}; closing the Zyre MC bot.`);
