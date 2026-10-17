@@ -1,10 +1,10 @@
 {
-  "guildId": "",
-  "adminRoleId": "",
-  "welcomeChannelId": "",
-  "rulesChannelId": "",
-  "rankChannelId": "",
-  "levelUpChannelId": "",
+  "guildId": "1482343699181604914",
+  "adminRoleId": "1487876967729725600",
+  "welcomeChannelId": "1533563193123672085",
+  "rulesChannelId": "1522585564153381056",
+  "rankChannelId": "1536445438096441364",
+  "levelUpChannelId": "1536445438096441364",
   "prefix": "!",
   "databasePath": "./data/levels.sqlite",
   "assets": {
@@ -15,7 +15,6 @@
     "ip": "play.zyremc.fun",
     "bedrockPort": "19132",
     "name": "Zyre MC",
-    "timeZone": "Asia/Kolkata"
   },
   "levelRoles": {
     "5": "ROLE_ID_HERE",
